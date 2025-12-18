@@ -26,7 +26,10 @@ def get_conn():
 
 # Load main data with user signup dates
 @st.cache_data(ttl=600)
-def load_data(_conn):
+def load_data():
+    conn = psycopg2.connect(
+        "postgresql://postgres:We<3ProfKerger25@35.202.134.206:5432/postgres"
+    )
     query = """
     SELECT 
         i.id as interaction_id,
@@ -55,7 +58,9 @@ def load_data(_conn):
     LEFT JOIN places p ON i.place_id = p.id
     LEFT JOIN property pr ON i.property_id = pr.id
     """
-    return pd.read_sql(query, _conn)
+    df = pd.read_sql(query, conn)
+    conn.close()
+    return df
 
 # Connect and load
 conn = get_conn()
@@ -63,7 +68,10 @@ if conn is None:
     st.stop()
 
 with st.spinner("Loading data..."):
-    df = load_data(conn)
+    df = load_data()
+
+# Close the initial connection check
+conn.close()
 
 if df.empty:
     st.error("No data found in database")
