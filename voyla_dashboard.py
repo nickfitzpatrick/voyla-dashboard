@@ -4,13 +4,31 @@ import plotly.express as px
 import psycopg2
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
+import re
+
+# Function to remove emojis from text
+def remove_emojis(text):
+    if pd.isna(text):
+        return text
+    emoji_pattern = re.compile("["
+        u"\U0001F600-\U0001F64F"  # emoticons
+        u"\U0001F300-\U0001F5FF"  # symbols & pictographs
+        u"\U0001F680-\U0001F6FF"  # transport & map symbols
+        u"\U0001F1E0-\U0001F1FF"  # flags (iOS)
+        u"\U00002702-\U000027B0"
+        u"\U000024C2-\U0001F251"
+        u"\U0001F900-\U0001F9FF"  # supplemental symbols
+        u"\U00002600-\U000026FF"  # misc symbols
+        "]+", flags=re.UNICODE)
+    return emoji_pattern.sub(r'', text).strip()
 
 st.set_page_config(page_title="Voyla Dashboard", layout="wide")
 
 # Title
-st.title("🎯 Voyla Analytics Dashboard")
+st.title("Voyla Analytics Dashboard")
 st.markdown("User behavior and interaction analysis")
 
+# Database connection - SECURE VERSION
 # Database connection
 @st.cache_resource
 def get_conn():
@@ -69,6 +87,12 @@ if df.empty:
     st.error("No data found in database")
     st.stop()
 
+# Remove emojis from text columns
+text_columns = ['username', 'place_name', 'city', 'state', 'property_name', 'property_category']
+for col in text_columns:
+    if col in df.columns:
+        df[col] = df[col].apply(remove_emojis)
+
 # Parse dates
 df['interaction_date'] = pd.to_datetime(df['interaction_date'])
 df['date'] = df['interaction_date'].dt.date
@@ -80,7 +104,7 @@ n_clusters = st.sidebar.slider("Number of User Clusters", 2, 10, 4)
 show_data = st.sidebar.checkbox("Show Raw Data")
 
 # Key metrics
-st.header("📊 Key Metrics")
+st.header("Key Metrics")
 col1, col2, col3, col4 = st.columns(4)
 
 with col1:
@@ -94,10 +118,10 @@ with col4:
 
 # Create tabs
 tab1, tab2, tab3, tab4 = st.tabs([
-    "📈 Activity Overview",
-    "👥 User Clusters", 
-    "🌍 Geography",
-    "🏠 Properties"
+    "Activity Overview",
+    "User Clusters", 
+    "Geography",
+    "Properties"
 ])
 
 # Tab 1: Activity Overview
@@ -227,14 +251,14 @@ with tab2:
         for cluster in sorted(user_stats['cluster'].unique()):
             stats = cluster_summary.loc[cluster]
             if stats['total_interactions'] > user_stats['total_interactions'].median():
-                profile = "🔥 High Activity"
+                profile = "High Activity"
             else:
-                profile = "😌 Casual User"
+                profile = "Casual User"
             
             if stats['unique_places'] > user_stats['unique_places'].median():
-                profile += ", 🗺️ Explorer"
+                profile += ", Explorer"
             else:
-                profile += ", 📍 Focused"
+                profile += ", Focused"
             
             st.write(f"**Cluster {cluster}**: {profile} ({int(stats['user_count'])} users)")
 
@@ -341,19 +365,19 @@ with tab4:
         )
         st.plotly_chart(fig, use_container_width=True)
     
-    # Property emoji cloud
+    # Property interaction summary
     st.subheader("Popular Property Types")
-    if df['property_emoji'].notna().sum() > 0:
-        emoji_counts = df.groupby(['property_emoji', 'property_name']).size().reset_index(name='count')
-        emoji_counts = emoji_counts.sort_values('count', ascending=False).head(20)
+    if df['property_name'].notna().sum() > 0:
+        property_summary = df.groupby('property_name').size().reset_index(name='count')
+        property_summary = property_summary.sort_values('count', ascending=False).head(20)
         
         st.write("Most popular properties:")
-        for _, row in emoji_counts.iterrows():
-            st.write(f"{row['property_emoji']} **{row['property_name']}**: {row['count']} interactions")
+        for _, row in property_summary.iterrows():
+            st.write(f"**{row['property_name']}**: {row['count']} interactions")
 
 # Show raw data if requested
 if show_data:
-    st.header("📋 Raw Data")
+    st.header("Raw Data")
     st.dataframe(df, use_container_width=True)
     
     # Download button
@@ -368,4 +392,4 @@ if show_data:
 # Footer
 st.sidebar.markdown("---")
 st.sidebar.markdown("**Voyla Analytics** v2.0")
-st.sidebar.info(f"📊 {len(df):,} interactions\n👥 {df['user_id'].nunique()} users\n📍 {df['place_id'].nunique()} places")
+st.sidebar.info(f"{len(df):,} interactions | {df['user_id'].nunique()} users | {df['place_id'].nunique()} places")
